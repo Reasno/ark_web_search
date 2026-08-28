@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ark Web Search",
+        "description": "Enter your Volcengine Ark Search API Key. Get one at https://console.volcengine.com/search-infinity/api-key",
+        "data": {
+          "api_key": "API Key",
+          "default_count": "Default result count",
+          "timeout": "Request timeout (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the Ark Search API — check the API Key and network."
+    },
+    "abort": {
+      "single_instance_allowed": "Ark Web Search is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ark Web Search options",
+        "data": {
+          "default_count": "Default result count",
+          "timeout": "Request timeout (seconds)"
+        }
+      }
+    }
+  }
+}

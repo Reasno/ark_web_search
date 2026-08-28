@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ark 联网搜索",
+        "description": "填入火山引擎豆包搜索 API Key，控制台：https://console.volcengine.com/search-infinity/api-key",
+        "data": {
+          "api_key": "API Key",
+          "default_count": "默认返回结果数",
+          "timeout": "请求超时（秒）"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "无法访问 Ark 搜索接口，请检查 API Key 与网络。"
+    },
+    "abort": {
+      "single_instance_allowed": "Ark 联网搜索已配置，无需重复添加。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ark 联网搜索设置",
+        "data": {
+          "default_count": "默认返回结果数",
+          "timeout": "请求超时（秒）"
+        }
+      }
+    }
+  }
+}

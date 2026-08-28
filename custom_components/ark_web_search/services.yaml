@@ -1,0 +1,28 @@
+search:
+  name: Web search
+  description: Search the live internet via Volcengine Ark (Doubao) Search.
+  fields:
+    query:
+      name: Query
+      description: Search keywords (max 100 characters).
+      required: true
+      example: 北京今天天气
+      selector:
+        text:
+    count:
+      name: Count
+      description: Number of results to return (1-10).
+      selector:
+        number:
+          min: 1
+          max: 10
+    time_range:
+      name: Time range
+      description: Limit results by publish time.
+      selector:
+        select:
+          options:
+            - OneDay
+            - OneWeek
+            - OneMonth
+            - OneYear

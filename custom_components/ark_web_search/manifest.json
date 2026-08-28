@@ -1,0 +1,11 @@
+{
+  "domain": "ark_web_search",
+  "name": "Ark Web Search",
+  "codeowners": ["@guxi"],
+  "config_flow": true,
+  "documentation": "https://www.volcengine.com/docs/87772/2272953",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "0.1.0"
+}
