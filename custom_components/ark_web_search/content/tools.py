@@ -101,7 +101,13 @@ class _BaseListTool(llm.Tool):
                 "The local content library is not available right now.",
             )
         limit = _limit_value(kwargs.get("limit"), self._default_limit)
-        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+        # Drop None values and the raw "limit" (it is normalised and passed
+        # explicitly, otherwise list_items gets it twice).
+        kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if v is not None and k != "limit"
+        }
         try:
             return catalog.list_items(limit=limit, **kwargs)
         except CatalogError as err:
