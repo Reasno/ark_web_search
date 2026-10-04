@@ -25,7 +25,7 @@ import re
 import shutil
 import urllib.error
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -208,9 +208,12 @@ ENRICH_SYSTEM = (
     "You create catalog metadata for a children's reading item. Read the "
     "title and excerpt, then return strict JSON with two keys: 'summary' as "
     "one sentence of at most 30 words in English, describing only facts from "
-    "the excerpt; and 'tags' as an array of 2 to 5 short lowercase English "
-    "topic labels. If the excerpt is insufficient, use null for summary and "
-    "an empty array. Return JSON only."
+    "the excerpt; and 'tags' as an array of 4 to 8 short topic labels, each "
+    "lowercase and without spaces. Include both English labels and their "
+    "Simplified Chinese equivalents, for example: animals, 动物, pets, 宠物, "
+    "family, 家庭, friendship, 友谊, school, 学校. Use concrete subjects when "
+    "present, for example dog, 狗, lion, 狮子. If the excerpt is "
+    "insufficient, use null for summary and an empty array. Return JSON only."
 )
 
 
@@ -333,10 +336,22 @@ def build(kind: str, src: Path, out: Path) -> dict[str, int]:
         title, text, _ = parsed[item_id]
         return item_id, llm_enrich(item_id, title, text)
 
-    with ThreadPoolExecutor(max_workers=6) as pool:
-        for item_id, enrichment in pool.map(enrich_one, records):
+    def _save_cache() -> None:
+        tmp = cache_path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(cache, ensure_ascii=False, indent=1))
+        tmp.replace(cache_path)
+
+    futures = []
+    with ThreadPoolExecutor(
+        max_workers=int(os.environ.get("ENRICH_WORKERS", "6"))
+    ) as pool:
+        for record in records:
+            if record["id"] not in cache:
+                futures.append(pool.submit(enrich_one, record))
+        for future in as_completed(futures):
+            item_id, enrichment = future.result()
             cache[item_id] = enrichment
-    cache_path.write_text(json.dumps(cache, ensure_ascii=False, indent=1))
+            _save_cache()
 
     items: list[dict[str, Any]] = []
     for record in records:
@@ -414,6 +429,9 @@ def build(kind: str, src: Path, out: Path) -> dict[str, int]:
 
 def _detect_language(text: str) -> str:
     match = re.search(r"language:\s*([a-z]{2,3})", text, re.I)
+    cjk = len(re.findall(r"[\u4e00-\u9fff]", text[:3000]))
+    if cjk > 50 and not match:
+        return "zh"
     return match.group(1).lower() if match else "en"
 
 

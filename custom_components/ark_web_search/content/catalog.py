@@ -179,16 +179,43 @@ class ContentCatalog:
         ]
 
     @staticmethod
+    def _term_hits(term: str, text: str) -> bool:
+        """Return whether one query term matches a haystack text.
+
+        Handles English substring/word matches and Chinese queries, where a
+        CJK label inside the text (e.g. ``动物``) should match a longer query
+        term (e.g. ``小动物``), and vice versa.
+        """
+        if term in text:
+            return True
+        if re.search(r"[\u4e00-\u9fff]", term):
+            for run in re.findall(r"[\u4e00-\u9fff]{1,8}", text):
+                if run in term or term in run:
+                    return True
+        return False
+
+    @staticmethod
     def _keyword_score(item: dict[str, Any], terms: list[str], phrase: str) -> int:
         score = 0
         for text, weight in ContentCatalog._haystacks(item):
-            if phrase and phrase in text:
+            if phrase and (
+                phrase in text
+                or (
+                    re.search(r"[\u4e00-\u9fff]", phrase)
+                    and any(
+                        run in phrase or phrase in run
+                        for run in re.findall(r"[\u4e00-\u9fff]{1,8}", text)
+                    )
+                )
+            ):
                 score += 8 * weight
             for term in terms:
-                if term in text:
+                if ContentCatalog._term_hits(term, text):
                     score += weight
-                    # Exact word match bonus.
-                    if re.search(rf"(?<![a-z]){re.escape(term)}(?![a-z])", text):
+                    # Exact word-match bonus for English terms.
+                    if re.fullmatch(r"[a-z0-9']+", term) and re.search(
+                        rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", text
+                    ):
                         score += weight
         return score
 

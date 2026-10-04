@@ -27,6 +27,7 @@ _PG_END = re.compile(r"^\*\*\*\s*END OF (THE|THIS) PROJECT GUTENBERG")
 _NUMBERED = re.compile(r"^\d{1,3}[.)]\s+\S")
 _ALL_CAPS_WORDS = re.compile(r"^[A-Z0-9'\u2019 ,\-:?!&]+$")
 _WORD = re.compile(r"[A-Za-z\u2019']+")
+_CJK_CHAR = re.compile(r"[\u4e00-\u9fff]")
 
 
 def _clean_inline(line: str) -> str:
@@ -247,5 +248,12 @@ def parse_sections(raw: str) -> tuple[dict[str, str], list[str]]:
 
 
 def word_count(sections: list[str]) -> int:
-    """Count words in parsed sections."""
-    return sum(len(_WORD.findall(section)) for section in sections)
+    """Count words in parsed sections.
+
+    Latin words count as one each; each CJK character counts as one word.
+    """
+    total = 0
+    for section in sections:
+        total += len(_WORD.findall(section))
+        total += len(_CJK_CHAR.findall(section))
+    return total
