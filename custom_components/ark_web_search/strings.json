@@ -24,7 +24,11 @@
         "title": "Ark Web Search options",
         "data": {
           "default_count": "Default result count",
-          "timeout": "Request timeout (seconds)"
+          "timeout": "Request timeout (seconds)",
+          "stories_directory": "Stories library directory",
+          "english_directory": "English library directory",
+          "content_default_limit": "Default content list size",
+          "content_max_fetch_chars": "Max characters per content fetch"
         }
       }
     }

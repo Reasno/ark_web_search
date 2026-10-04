@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Ark 联网搜索",
+        "title": "Ark Web Search",
         "description": "填入火山引擎豆包搜索 API Key，控制台：https://console.volcengine.com/search-infinity/api-key",
         "data": {
           "api_key": "API Key",
@@ -21,10 +21,14 @@
   "options": {
     "step": {
       "init": {
-        "title": "Ark 联网搜索设置",
+        "title": "Ark 联网搜索与本地内容设置",
         "data": {
-          "default_count": "默认返回结果数",
-          "timeout": "请求超时（秒）"
+          "default_count": "默认搜索结果数",
+          "timeout": "搜索请求超时（秒）",
+          "stories_directory": "故事库目录",
+          "english_directory": "英文阅读库目录",
+          "content_default_limit": "内容列表默认条数",
+          "content_max_fetch_chars": "单次内容获取最大字符数"
         }
       }
     }

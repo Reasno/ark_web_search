@@ -16,11 +16,23 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import (
     CONF_API_KEY,
+    CONF_CONTENT_DEFAULT_LIMIT,
+    CONF_CONTENT_MAX_FETCH_CHARS,
     CONF_DEFAULT_COUNT,
+    CONF_ENGLISH_DIRECTORY,
+    CONF_STORIES_DIRECTORY,
     CONF_TIMEOUT,
+    DEFAULT_CONTENT_LIMIT,
+    DEFAULT_CONTENT_MAX_FETCH_CHARS,
     DEFAULT_COUNT,
+    DEFAULT_ENGLISH_DIRECTORY,
+    DEFAULT_STORIES_DIRECTORY,
     DEFAULT_TIMEOUT,
     DOMAIN,
+    CONTENT_FETCH_CHARS_MAX,
+    CONTENT_FETCH_CHARS_MIN,
+    CONTENT_LIMIT_MAX,
+    CONTENT_LIMIT_MIN,
     MAX_COUNT,
 )
 from .search_api import ArkSearchError, async_search
@@ -52,7 +64,7 @@ class ArkWebSearchConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 user_input[CONF_API_KEY] = user_input[CONF_API_KEY].strip()
                 return self.async_create_entry(
-                    title="Web Search (Ark)", data=user_input
+                    title="Web Search & Kids Content", data=user_input
                 )
 
         schema = vol.Schema(
@@ -77,13 +89,18 @@ class ArkWebSearchConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class ArkWebSearchOptionsFlow(OptionsFlow):
-    """Allow tuning result count / timeout after setup."""
+    """Allow tuning search and content options after setup."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            data = {
+                key: value
+                for key, value in user_input.items()
+                if value is not None and str(value).strip()
+            }
+            return self.async_create_entry(title="", data=data)
 
         data = {**self.config_entry.data, **self.config_entry.options}
         schema = vol.Schema(
@@ -96,6 +113,40 @@ class ArkWebSearchOptionsFlow(OptionsFlow):
                     CONF_TIMEOUT,
                     default=data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
                 ): vol.All(vol.Coerce(int), vol.Range(min=5, max=60)),
+                vol.Optional(
+                    CONF_STORIES_DIRECTORY,
+                    default=data.get(
+                        CONF_STORIES_DIRECTORY, DEFAULT_STORIES_DIRECTORY
+                    ),
+                ): cv.string,
+                vol.Optional(
+                    CONF_ENGLISH_DIRECTORY,
+                    default=data.get(
+                        CONF_ENGLISH_DIRECTORY, DEFAULT_ENGLISH_DIRECTORY
+                    ),
+                ): cv.string,
+                vol.Optional(
+                    CONF_CONTENT_DEFAULT_LIMIT,
+                    default=data.get(
+                        CONF_CONTENT_DEFAULT_LIMIT, DEFAULT_CONTENT_LIMIT
+                    ),
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=CONTENT_LIMIT_MIN, max=CONTENT_LIMIT_MAX),
+                ),
+                vol.Optional(
+                    CONF_CONTENT_MAX_FETCH_CHARS,
+                    default=data.get(
+                        CONF_CONTENT_MAX_FETCH_CHARS,
+                        DEFAULT_CONTENT_MAX_FETCH_CHARS,
+                    ),
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(
+                        min=CONTENT_FETCH_CHARS_MIN,
+                        max=CONTENT_FETCH_CHARS_MAX,
+                    ),
+                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
