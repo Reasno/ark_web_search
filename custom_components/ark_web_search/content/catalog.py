@@ -19,7 +19,7 @@ from .markdown import MAX_FILE_SIZE, parse_sections
 _LOGGER = logging.getLogger(__name__)
 
 CATALOG_VERSION = 1
-ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._'\-]*$")
+ID_PATTERN = re.compile(r"^[A-Za-z0-9\u4e00-\u9fff][A-Za-z0-9\u4e00-\u9fff._'\-]*$")
 
 STORIES = "stories"
 ENGLISH = "english"
