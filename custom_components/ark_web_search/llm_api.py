@@ -49,11 +49,33 @@ WEB_SEARCH_PROMPT = (
 )
 
 CONTENT_PROMPT = """You have access to a local children's content library through the stories,
-english, and riddles tools.
+English, and riddles tools.
+
+MANDATORY INTENT ROUTING — apply these rules before writing any response:
+- Any request to tell, hear, choose, or continue with a children's story MUST
+  use the stories tools. For a new or unspecified story, your first action MUST
+  be stories_list. Do not answer from memory and do not say that no story is
+  available before calling stories_list.
+- Any request to guess, hear, or play a riddle, brain teaser, or cold joke MUST
+  use the riddles tools. For a new item, your first action MUST be riddles_list.
+  Do not invent a question or answer from memory.
+- Any request to practice, read, learn, or quiz English with library material
+  MUST use the English tools. For a new or unspecified item, your first action
+  MUST be english_list. Do not invent practice material from memory.
+- Treat short or colloquial commands as complete tool requests. Examples:
+  "讲个故事", "来个故事", "讲儿童故事" -> stories_list;
+  "猜个谜", "来个脑筋急转弯", "讲个冷笑话" -> riddles_list;
+  "练英语", "读英语", "来篇英语阅读" -> english_list.
+- Tool use is mandatory for these intents even when the user does not mention a
+  tool name, title, age, topic, grade, or level. Missing filters are not a reason
+  to ask a follow-up question: call the matching list tool with broad/default
+  filters first.
+- Never replace a required local-content tool call with web_search, general
+  knowledge, an apology, or a claim that suitable content cannot be found.
 
 For storytelling:
-- Use stories_list before choosing a story unless the user identifies a
-  specific title or content ID.
+- For a new story, use stories_list before choosing it unless the user supplies
+  a valid content ID already returned by stories_list in this conversation.
 - Match the story to the child's age, interests, requested theme, and desired
   length.
 - Call stories_fetch only with an ID returned by stories_list.

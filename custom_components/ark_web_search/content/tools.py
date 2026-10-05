@@ -127,10 +127,12 @@ class StoriesListTool(_BaseListTool):
 
     name = "stories_list"
     description = (
-        "Search and list metadata from the local children's story library. "
-        "Use this before stories_fetch when selecting a story. Filters by "
-        "keyword, target age, and difficulty (1-5). It does not return the "
-        "full text."
+        "MANDATORY for any request to tell, hear, choose, or continue with a "
+        "children's story when no valid story ID is already known. Call this "
+        "first even if the user only says '讲个故事' and gives no filters. "
+        "Searches local story metadata by keyword, target age, and difficulty "
+        "(1-5); it does not return the full text. Never invent a story or say "
+        "none is available before calling this tool."
     )
     parameters = vol.Schema(
         {
@@ -153,11 +155,12 @@ class EnglishListTool(_BaseListTool):
 
     name = "english_list"
     description = (
-        "Search and list metadata from the local graded English reading "
-        "library. Use this before english_fetch when selecting material. "
-        "Filters by keyword, target age, Chinese primary-school grade (1-6), "
-        "reading level code, difficulty (1-10), and maximum word count. It "
-        "does not return the full text."
+        "MANDATORY for any request to practice, read, learn, or quiz English "
+        "with library material when no valid item ID is already known. Call "
+        "this first even if the user only says '练英语' and gives no filters. "
+        "Searches graded English reading metadata by keyword, age, Chinese "
+        "primary-school grade (1-6), level, difficulty (1-10), and word count. "
+        "Never invent practice material before calling this tool."
     )
     parameters = vol.Schema(
         {
@@ -184,10 +187,12 @@ class RiddlesListTool(_BaseListTool):
 
     name = "riddles_list"
     description = (
-        "Select kid-friendly brain teasers, number riddles, and cold jokes "
-        "from the editorially reviewed local library. The response contains "
-        "questions but never answers. Present one question and wait for the "
-        "user to guess; do not call riddles_fetch yet."
+        "MANDATORY first action for any request to guess, hear, or play a "
+        "riddle, brain teaser, or cold joke. Call this even if the user only "
+        "says '猜个谜' and gives no filters. Selects a kid-friendly question "
+        "from the reviewed local library and never returns its answer. Present "
+        "one question, then wait for the user's guess; do not call "
+        "riddles_fetch yet and never invent a riddle from memory."
     )
     parameters = vol.Schema(
         {
