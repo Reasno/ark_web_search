@@ -140,14 +140,18 @@ def canonical_license(raw: str) -> str:
 TAXONOMY: list[tuple[str, list[str]]] = [
     (
         "animals",
-        "animal dog cat lion mouse bird bear fox rabbit elephant cow "
-        "monkey horse chicken fish wolf goat duck owl ant frog snake bee crow "
-        "parrot puppy squirrel tiger sheep pig hen donkey deer turtle whale",
+        (
+            "animal dog cat lion mouse bird bear fox rabbit elephant cow "
+            "monkey horse chicken fish wolf goat duck owl ant frog snake bee crow "
+            "parrot puppy squirrel tiger sheep pig hen donkey deer turtle whale"
+        ),
     ),
     (
         "family",
-        "family mother father mum dad brother sister grandma grandpa "
-        "parents grandmother grandfather parents",
+        (
+            "family mother father mum dad brother sister grandma grandpa "
+            "parents grandmother grandfather parents"
+        ),
     ),
     ("friendship", "friend friendship"),
     ("school", "school teacher class classroom student homework lesson"),
@@ -157,7 +161,7 @@ TAXONOMY: list[tuple[str, list[str]]] = [
     ("honesty", "honest honesty lie truth"),
     (
         "nature",
-        "tree forest river mountain garden plant seed nature leaf " "flower grass",
+        ("tree forest river mountain garden plant seed nature leaf flower grass"),
     ),
     ("food", "food eat cook bread fruit milk cake meal dinner market hungry"),
     ("adventure", "adventure journey travel trip explore"),
@@ -254,7 +258,7 @@ def llm_enrich(item_id: str, title: str, text: str) -> dict[str, Any]:
         with urllib.request.urlopen(request, timeout=40) as response:
             data = json.load(response)
         content = data["choices"][0]["message"]["content"]
-        match = re.search(r"\{.*\}", content, re.S)
+        match = re.search(r"\{.*\}", content, re.DOTALL)
         if not match:
             raise ValueError("no JSON in model response")
         result = json.loads(match.group(0))
@@ -349,12 +353,21 @@ def age_to_difficulty(age_min: int, age_max: int) -> int:
 # -- build ---------------------------------------------------------------
 
 
-def build(kind: str, src: Path, out: Path) -> dict[str, int]:
+def build(
+    kind: str, src: Path, out: Path, whitelist_path: Path | None = None
+) -> dict[str, Any]:
     """Build one catalog and copy its content files."""
     if kind not in ("stories", "english"):
         raise ValueError(f"unknown kind: {kind}")
 
+    whitelist: set[str] | None = None
+    if whitelist_path is not None:
+        whitelist_data = json.loads(whitelist_path.read_text(encoding="utf-8"))
+        whitelist = set(whitelist_data.get("keep_ids", whitelist_data))
+
     out_content = out / "content"
+    if out_content.exists():
+        shutil.rmtree(out_content)
     out_content.mkdir(parents=True, exist_ok=True)
 
     cache_path = out / ".enrichment_cache.json"
@@ -367,6 +380,10 @@ def build(kind: str, src: Path, out: Path) -> dict[str, int]:
         for f in src.iterdir()
         if f.is_file() and f.name.endswith(".md") and f.name != "README.md"
     )
+    not_whitelisted = 0
+    if whitelist is not None:
+        not_whitelisted = sum(path.stem not in whitelist for path in raw_files)
+        raw_files = [path for path in raw_files if path.stem in whitelist]
 
     records: list[dict[str, Any]] = []
     parsed: dict[str, tuple[str, str, list[str]]] = {}
@@ -499,10 +516,20 @@ def build(kind: str, src: Path, out: Path) -> dict[str, int]:
         name = Path(item["relative_path"]).name
         shutil.copy2(src / name, out_content / name)
 
-    llm_count = sum(1 for v in cache.values() if v.get("source") == "llm")
-    agent_count = sum(1 for v in cache.values() if v.get("source") == "agent")
+    active_ids = {record["id"] for record in records}
+    llm_count = sum(
+        1
+        for key, value in cache.items()
+        if key in active_ids and value.get("source") == "llm"
+    )
+    agent_count = sum(
+        1
+        for key, value in cache.items()
+        if key in active_ids and value.get("source") == "agent"
+    )
     return {
         "items": len(items),
+        "not_whitelisted": not_whitelisted,
         "skipped_too_large": skipped_size,
         "skipped_empty": len(skipped_empty),
         "llm_enriched": llm_count,
@@ -515,7 +542,7 @@ def _detect_language(header: dict[str, str], text: str) -> str:
     header_language = (header.get("language") or "").strip().lower()
     if header_language and "中文" in header_language:
         return "zh"
-    match = re.search(r"language:\s*([a-z]{2,3})", text, re.I)
+    match = re.search(r"language:\s*([a-z]{2,3})", text, re.IGNORECASE)
     cjk = len(re.findall(r"[\u4e00-\u9fff]", text[:3000]))
     if cjk > 50 and not match:
         return "zh"
@@ -538,8 +565,13 @@ def main() -> None:
     parser.add_argument("kind", choices=["stories", "english"])
     parser.add_argument("--src", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument(
+        "--whitelist",
+        type=Path,
+        help="JSON list (or keep_ids object) produced by editorial review",
+    )
     args = parser.parse_args()
-    stats = build(args.kind, args.src, args.out)
+    stats = build(args.kind, args.src, args.out, args.whitelist)
     print(json.dumps(stats, indent=2))
 
 

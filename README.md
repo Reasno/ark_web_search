@@ -42,9 +42,11 @@
 
 ```bash
 export ARK_API_KEY=... ARK_MODEL=doubao-seed-2-0-mini-260428
-python3 tools/build_catalog.py stories --src <源目录> --out <输出目录>/stories
+python3 tools/build_catalog.py stories --src <源目录> --out <输出目录>/stories \
+  --whitelist tools/story_quality_whitelist.json
 python3 tools/build_catalog.py english --src <源目录> --out <输出目录>/english
-python3 tools/build_riddles_catalog.py --src <下载数据目录> --out <输出目录>/riddles
+python3 tools/build_riddles_catalog.py --src <下载数据目录> --out <输出目录>/riddles \
+  --whitelist tools/riddle_quality_whitelist.json
 ```
 
 不设置 `ARK_API_KEY` 时使用确定性启发式生成摘要与主题；设置后调用 Ark
@@ -89,7 +91,8 @@ include_coaching (可选，仅 english_fetch) 是否返回陪练信息，默认 
 ### `riddles_list` / `riddles_fetch`
 
 `riddles_list` 返回谜面和元数据，不返回答案；可按年龄、难度、类别筛选。
-类别包括逻辑脑筋急转弯、冷笑话脑筋急转弯、字谜和数字谜。
+正式库只包含经过逐条审核的逻辑脑筋急转弯、冷笑话式脑筋急转弯和数字谜；
+视觉依赖强、低质量的字谜不进入语音库。
 
 Conversation Agent 必须先用 `riddles_list` 出一道题并等待用户猜。只有用户已经
 作答，或明确说不知道、放弃、要求揭晓时，才用同一 ID 调用 `riddles_fetch`

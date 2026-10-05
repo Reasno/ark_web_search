@@ -186,7 +186,14 @@ def markdown(record: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
-def build(source: Path, output: Path) -> dict[str, Any]:
+def build(
+    source: Path, output: Path, whitelist_path: Path | None = None
+) -> dict[str, Any]:
+    whitelist: set[str] | None = None
+    if whitelist_path is not None:
+        whitelist_data = json.loads(whitelist_path.read_text(encoding="utf-8"))
+        whitelist = set(whitelist_data.get("keep_ids", whitelist_data))
+
     content = output / "content"
     if content.exists():
         shutil.rmtree(content)
@@ -198,6 +205,7 @@ def build(source: Path, output: Path) -> dict[str, Any]:
     category_counts: dict[str, int] = {}
     blocked = 0
     duplicates = 0
+    not_whitelisted = 0
 
     for record in load_records(source):
         question = record["question"]
@@ -212,8 +220,11 @@ def build(source: Path, output: Path) -> dict[str, Any]:
         if not safe(question, answer, *options):
             blocked += 1
             continue
-        seen_questions.add(key)
         item_id = stable_id(record["prefix"], question)
+        if whitelist is not None and item_id not in whitelist:
+            not_whitelisted += 1
+            continue
+        seen_questions.add(key)
         filename = f"{item_id}.md"
         (content / filename).write_text(markdown(record), encoding="utf-8")
         lo, hi = record["age"]
@@ -252,6 +263,7 @@ def build(source: Path, output: Path) -> dict[str, Any]:
         "content_files": len(list(content.glob("*.md"))),
         "duplicates_removed": duplicates,
         "blocked_removed": blocked,
+        "not_whitelisted": not_whitelisted,
         "sources": source_counts,
         "categories": category_counts,
     }
@@ -261,8 +273,17 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--src", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument(
+        "--whitelist",
+        type=Path,
+        help="JSON list (or keep_ids object) produced by editorial review",
+    )
     args = parser.parse_args()
-    print(json.dumps(build(args.src, args.out), ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            build(args.src, args.out, args.whitelist), ensure_ascii=False, indent=2
+        )
+    )
 
 
 if __name__ == "__main__":

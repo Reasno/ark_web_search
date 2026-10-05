@@ -184,8 +184,8 @@ class RiddlesListTool(_BaseListTool):
 
     name = "riddles_list"
     description = (
-        "Select brain teasers, Chinese character riddles, number riddles, and "
-        "kid-friendly cold jokes from the local library. The response contains "
+        "Select kid-friendly brain teasers, number riddles, and cold jokes "
+        "from the editorially reviewed local library. The response contains "
         "questions but never answers. Present one question and wait for the "
         "user to guess; do not call riddles_fetch yet."
     )
@@ -200,11 +200,9 @@ class RiddlesListTool(_BaseListTool):
                 [
                     "逻辑脑筋急转弯",
                     "冷笑话脑筋急转弯",
-                    "字谜",
                     "数字谜",
                     "brainteaser",
                     "cold_joke",
-                    "character_riddle",
                     "number_riddle",
                 ]
             ),
