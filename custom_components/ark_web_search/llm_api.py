@@ -4,12 +4,12 @@ Registered via `llm.async_register_api`, so it shows up in an agent's config
 flow under "Control Home Assistant" -> API. Works with local_openai, OpenAI,
 Anthropic, Google, AI Tasks etc.
 """
+
 from __future__ import annotations
 
 import logging
 
 import voluptuous as vol
-
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import llm
@@ -27,6 +27,8 @@ from .content.catalog import ContentCatalog
 from .content.tools import (
     EnglishFetchTool,
     EnglishListTool,
+    RiddlesFetchTool,
+    RiddlesListTool,
     StoriesFetchTool,
     StoriesListTool,
 )
@@ -46,8 +48,8 @@ WEB_SEARCH_PROMPT = (
     "results back to the user, and do not mention the tool itself."
 )
 
-CONTENT_PROMPT = """You have access to a local children's content library through the stories
-and english tools.
+CONTENT_PROMPT = """You have access to a local children's content library through the stories,
+english, and riddles tools.
 
 For storytelling:
 - Use stories_list before choosing a story unless the user identifies a
@@ -82,6 +84,21 @@ For English practice:
   practice itself mainly in English.
 - Never claim that a child pronounced a word correctly or incorrectly unless
   the conversation input provides enough evidence.
+
+For brain teasers, riddles, and cold jokes:
+- Use riddles_list to choose a suitable item. Its question field is the riddle
+  to ask, and it deliberately does not contain the answer.
+- Ask only one riddle at a time. After presenting the question, STOP and wait
+  for the user to guess. Never reveal, explain, hint at, or otherwise spoil the
+  twist or answer in the same turn as the question.
+- Do not call riddles_fetch when asking the question. Keep the returned riddle
+  ID available for the next turn.
+- Only after the user has made a guess, or explicitly says they do not know,
+  give up, or asks for the answer, call riddles_fetch with that ID. Then say
+  whether the guess matches, reveal the answer/twist, and briefly explain the
+  wordplay if useful.
+- If the user asks for another one, choose a new item and repeat this two-turn
+  question-then-answer flow.
 
 General rules:
 - Never invent titles, content IDs, levels, or passages.
@@ -151,6 +168,7 @@ class ArkSearchAPI(llm.API):
         timeout: int = 20,
         stories_catalog: ContentCatalog | None = None,
         english_catalog: ContentCatalog | None = None,
+        riddles_catalog: ContentCatalog | None = None,
         content_limit: int = DEFAULT_CONTENT_LIMIT,
         content_max_fetch_chars: int = DEFAULT_CONTENT_MAX_FETCH_CHARS,
     ) -> None:
@@ -161,6 +179,8 @@ class ArkSearchAPI(llm.API):
             StoriesFetchTool(stories_catalog, content_max_fetch_chars),
             EnglishListTool(english_catalog, content_limit),
             EnglishFetchTool(english_catalog, content_max_fetch_chars),
+            RiddlesListTool(riddles_catalog, content_limit),
+            RiddlesFetchTool(riddles_catalog, content_max_fetch_chars),
         ]
 
     async def async_get_api_instance(

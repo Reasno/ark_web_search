@@ -5,6 +5,7 @@ Each content directory (``stories`` / ``english``) contains a generated
 files. Catalogs are loaded once at integration setup (in an executor thread)
 and kept in memory; list tools never scan the filesystem.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,6 +23,7 @@ ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._'\-]*$")
 
 STORIES = "stories"
 ENGLISH = "english"
+RIDDLES = "riddles"
 
 DEFAULT_LIST_LIMIT = 8
 MAX_LIST_LIMIT = 20
@@ -129,22 +131,16 @@ class ContentCatalog:
             try:
                 resolved = _resolve_inside(base_dir, relative_path)
             except CatalogError:
-                _LOGGER.warning(
-                    "Skipping %s item with unsafe path", item_id
-                )
+                _LOGGER.warning("Skipping %s item with unsafe path", item_id)
                 continue
             item = dict(raw)
             item["_resolved_path"] = resolved
             items.append(item)
             seen.add(item_id)
             if not os.path.isfile(resolved):
-                _LOGGER.warning(
-                    "Content file missing for %s item %s", kind, item_id
-                )
+                _LOGGER.warning("Content file missing for %s item %s", kind, item_id)
             elif os.path.getsize(resolved) > MAX_FILE_SIZE:
-                _LOGGER.warning(
-                    "Content file too large for %s item %s", kind, item_id
-                )
+                _LOGGER.warning("Content file too large for %s item %s", kind, item_id)
 
         catalog = cls(kind, base_dir, items)
         _LOGGER.info("Loaded %s catalog with %d items", kind, len(items))
@@ -226,6 +222,7 @@ class ContentCatalog:
         age: int | None = None,
         difficulty: int | None = None,
         language: str | None = None,
+        category: str | None = None,
         grade: int | None = None,
         level: str | None = None,
         max_words: int | None = None,
@@ -251,21 +248,25 @@ class ContentCatalog:
             candidates = [
                 c for c in candidates if (c.get("language") or "").lower() == language
             ]
+        if category:
+            candidates = [
+                c
+                for c in candidates
+                if (c.get("category") or "").lower() == category.lower()
+                or (c.get("riddle_kind") or "").lower() == category.lower()
+            ]
         if level:
             candidates = [
-                c for c in candidates
-                if (c.get("level") or "").lower() == level.lower()
+                c for c in candidates if (c.get("level") or "").lower() == level.lower()
             ]
         if max_words is not None:
             candidates = [
-                c for c in candidates
-                if (c.get("word_count") or 0) <= max_words
+                c for c in candidates if (c.get("word_count") or 0) <= max_words
             ]
         if grade_band is not None:
             lo, hi = grade_band
             candidates = [
-                c for c in candidates
-                if lo <= (c.get("difficulty") or 0) <= hi
+                c for c in candidates if lo <= (c.get("difficulty") or 0) <= hi
             ]
 
         scored: list[tuple[tuple[int, int, int, int, str], dict[str, Any]]] = []
@@ -305,8 +306,10 @@ class ContentCatalog:
         next_cursor = None
         if offset + limit < len(ordered):
             next_cursor = encode_cursor(offset + limit)
-        return {"items": [self._list_entry(item) for item in page],
-                "next_cursor": next_cursor}
+        return {
+            "items": [self._list_entry(item) for item in page],
+            "next_cursor": next_cursor,
+        }
 
     def _list_entry(self, item: dict[str, Any]) -> dict[str, Any]:
         """Shape one item for a list response."""
@@ -319,6 +322,18 @@ class ContentCatalog:
                 "themes": item.get("themes"),
                 "summary": item.get("summary"),
                 "word_count": item.get("word_count"),
+            }
+        if self.kind == RIDDLES:
+            # The title is the riddle question. Never include answer content in
+            # a list response; the model may fetch it only after the user guesses.
+            return {
+                "id": item["id"],
+                "question": item.get("title"),
+                "category": item.get("category"),
+                "riddle_kind": item.get("riddle_kind"),
+                "difficulty": item.get("difficulty"),
+                "recommended_age": self.recommended_age(item),
+                "topics": item.get("topics"),
             }
         return {
             "id": item["id"],
@@ -337,7 +352,6 @@ class ContentCatalog:
         self, item: dict[str, Any], section_start: int, section_count: int
     ) -> tuple[list[str], int]:
         """Read and parse one content file, returning (sections slice, total)."""
-        path = item["_resolved_path"]
         # Re-validate at read time.
         resolved = _resolve_inside(self.base_dir, item["relative_path"])
         try:

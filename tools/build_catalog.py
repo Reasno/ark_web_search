@@ -15,6 +15,7 @@ Usage:
     python3 tools/build_catalog.py stories --src DIR --out DIR
     python3 tools/build_catalog.py english --src DIR --out DIR
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,10 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Load markdown.py directly: it is standalone stdlib code and importing the
 # package would run the component's Home-Assistant-dependent __init__.
-_md_path = (
-    ROOT
-    / "custom_components/ark_web_search/content/markdown.py"
-)
+_md_path = ROOT / "custom_components/ark_web_search/content/markdown.py"
 _spec = importlib.util.spec_from_file_location("reachy_content_markdown", _md_path)
 markdown = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None
@@ -69,11 +67,7 @@ def fk_grade(text: str) -> float:
         return 0.0
     sentences = max(1, len(re.findall(r"[.!?](?:\s|$)", text)))
     syllables = sum(_syllables(w) for w in words)
-    return (
-        0.39 * (len(words) / sentences)
-        + 11.8 * (syllables / len(words))
-        - 15.59
-    )
+    return 0.39 * (len(words) / sentences) + 11.8 * (syllables / len(words)) - 15.59
 
 
 # -- difficulty / age ----------------------------------------------------
@@ -112,9 +106,7 @@ def english_difficulty(grade: float, explicit_code: str | None) -> int:
     if explicit_code:
         code = explicit_code.strip().upper()
         if code in GRADED_READER_LEVELS:
-            return {1: 2, 2: 4, 3: 6, 4: 8, 5: 10}[
-                GRADED_READER_LEVELS[code]
-            ]
+            return {1: 2, 2: 4, 3: 6, 4: 8, 5: 10}[GRADED_READER_LEVELS[code]]
         if code.isdigit():
             return {3: 5, 5: 8}.get(int(code), min(10, max(1, round(grade))))
     return min(10, max(1, round(grade + 0.5)))
@@ -128,6 +120,7 @@ def english_age(difficulty: int) -> tuple[int, int]:
 
 
 # -- licenses ------------------------------------------------------------
+
 
 def canonical_license(raw: str) -> str:
     text = raw.lower()
@@ -145,19 +138,27 @@ def canonical_license(raw: str) -> str:
 # -- heuristic enrichment ------------------------------------------------
 
 TAXONOMY: list[tuple[str, list[str]]] = [
-    ("animals", "animal dog cat lion mouse bird bear fox rabbit elephant cow "
-     "monkey horse chicken fish wolf goat duck owl ant frog snake bee crow "
-     "parrot puppy squirrel tiger sheep pig hen donkey deer turtle whale"),
-    ("family", "family mother father mum dad brother sister grandma grandpa "
-     "parents grandmother grandfather parents"),
+    (
+        "animals",
+        "animal dog cat lion mouse bird bear fox rabbit elephant cow "
+        "monkey horse chicken fish wolf goat duck owl ant frog snake bee crow "
+        "parrot puppy squirrel tiger sheep pig hen donkey deer turtle whale",
+    ),
+    (
+        "family",
+        "family mother father mum dad brother sister grandma grandpa "
+        "parents grandmother grandfather parents",
+    ),
     ("friendship", "friend friendship"),
     ("school", "school teacher class classroom student homework lesson"),
     ("kindness", "kind kindness help helpful caring"),
     ("sharing", "share sharing generous gift give"),
     ("courage", "brave courage afraid fear scary frightened"),
     ("honesty", "honest honesty lie truth"),
-    ("nature", "tree forest river mountain garden plant seed nature leaf "
-     "flower grass"),
+    (
+        "nature",
+        "tree forest river mountain garden plant seed nature leaf " "flower grass",
+    ),
     ("food", "food eat cook bread fruit milk cake meal dinner market hungry"),
     ("adventure", "adventure journey travel trip explore"),
     ("magic", "magic witch wizard fairy spell magical giant"),
@@ -206,14 +207,18 @@ def heuristic_summary(sections: list[str]) -> str | None:
 
 ENRICH_SYSTEM = (
     "You create catalog metadata for a children's reading item. Read the "
-    "title and excerpt, then return strict JSON with two keys: 'summary' as "
-    "one sentence of at most 30 words in English, describing only facts from "
-    "the excerpt; and 'tags' as an array of 4 to 8 short topic labels, each "
-    "lowercase and without spaces. Include both English labels and their "
-    "Simplified Chinese equivalents, for example: animals, 动物, pets, 宠物, "
-    "family, 家庭, friendship, 友谊, school, 学校. Use concrete subjects when "
-    "present, for example dog, 狗, lion, 狮子. If the excerpt is "
-    "insufficient, use null for summary and an empty array. Return JSON only."
+    "title and excerpt, then return strict JSON with four keys: 'summary' "
+    "as one sentence of at most 30 words in the same language as the excerpt "
+    "(English for English text, Simplified Chinese for Chinese text), "
+    "describing only facts from the excerpt; 'tags' as an array of 4 to 8 "
+    "short topic labels, each lowercase and without spaces, including both "
+    "English labels and their Simplified Chinese equivalents, for example: "
+    "animals, 动物, pets, 宠物, family, 家庭, friendship, 友谊, school, 学校; "
+    "'age_min' and 'age_max' as integers giving the recommended reader age "
+    "range in years. Use concrete subjects when present, for example dog, "
+    "狗, lion, 狮子. If the excerpt is insufficient, use null for summary "
+    "and an empty tags array, but always give a best-guess age range. Return "
+    "JSON only."
 )
 
 
@@ -224,6 +229,8 @@ def llm_enrich(item_id: str, title: str, text: str) -> dict[str, Any]:
         return {
             "summary": heuristic_summary_from(text),
             "tags": heuristic_tags(f"{title} {text}"),
+            "age_min": None,
+            "age_max": None,
             "source": "heuristic",
         }
     excerpt = text[:1200]
@@ -253,17 +260,27 @@ def llm_enrich(item_id: str, title: str, text: str) -> dict[str, Any]:
         result = json.loads(match.group(0))
         summary = result.get("summary")
         tags = result.get("tags")
+        age_min = _safe_age(result.get("age_min"))
+        age_max = _safe_age(result.get("age_max"))
         if not isinstance(summary, str) or not summary.strip():
             summary = heuristic_summary_from(text)
         if not isinstance(tags, list):
             tags = heuristic_tags(f"{title} {text}")
         else:
-            tags = [str(t).lower().strip() for t in tags if str(t).strip()][:5]
-        return {"summary": summary, "tags": tags or None, "source": "llm"}
+            tags = [str(t).lower().strip() for t in tags if str(t).strip()][:8]
+        return {
+            "summary": summary,
+            "tags": tags or None,
+            "age_min": age_min,
+            "age_max": age_max,
+            "source": "llm",
+        }
     except (urllib.error.URLError, ValueError, KeyError, TimeoutError):
         return {
             "summary": heuristic_summary_from(text),
             "tags": heuristic_tags(f"{title} {text}"),
+            "age_min": None,
+            "age_max": None,
             "source": "heuristic",
         }
 
@@ -273,7 +290,64 @@ def heuristic_summary_from(text: str) -> str | None:
     return heuristic_summary(sections)
 
 
+# -- Chinese age / difficulty -------------------------------------------
+
+
+def _safe_age(value: Any) -> int | None:
+    """Clamp an LLM age value into 2-15; return None when not an int."""
+    try:
+        age = int(value)
+    except (TypeError, ValueError):
+        return None
+    return min(15, max(2, age))
+
+
+# Chinese school-stage labels used in source Difficulty headers.
+_SCHOOL_STAGE_AGE = {
+    "小学低年级": (6, 8),
+    "小学中年级": (8, 10),
+    "小学中高年级": (9, 12),
+    "小学高年级": (10, 12),
+}
+
+# Series without any age marker.
+_SERIES_AGE = {
+    "伊索寓言": (4, 8),
+}
+
+
+def header_age_zh(header_difficulty: str | None, series: str | None):
+    """Parse a Chinese source header into (age_min, age_max), or None."""
+    if header_difficulty:
+        match = re.search(r"(\d{1,2})\s*[-–]\s*(\d{1,2})\s*岁", header_difficulty)
+        if match:
+            return int(match.group(1)), int(match.group(2))
+        for label, ages in _SCHOOL_STAGE_AGE.items():
+            if label in header_difficulty:
+                return ages
+    if series:
+        for label, ages in _SERIES_AGE.items():
+            if label in series:
+                return ages
+    return None
+
+
+def age_to_difficulty(age_min: int, age_max: int) -> int:
+    """Map a recommended age range to the 1-5 story difficulty scale."""
+    midpoint = (age_min + age_max) / 2
+    if midpoint < 5.5:
+        return 1
+    if midpoint < 6.5:
+        return 2
+    if midpoint < 8.5:
+        return 3
+    if midpoint < 10.5:
+        return 4
+    return 5
+
+
 # -- build ---------------------------------------------------------------
+
 
 def build(kind: str, src: Path, out: Path) -> dict[str, int]:
     """Build one catalog and copy its content files."""
@@ -289,7 +363,8 @@ def build(kind: str, src: Path, out: Path) -> dict[str, int]:
         cache = json.loads(cache_path.read_text())
 
     raw_files = sorted(
-        f for f in src.iterdir()
+        f
+        for f in src.iterdir()
         if f.is_file() and f.name.endswith(".md") and f.name != "README.md"
     )
 
@@ -319,12 +394,13 @@ def build(kind: str, src: Path, out: Path) -> dict[str, int]:
                 "title": title,
                 "source": header.get("source"),
                 "license": canonical_license(header.get("license") or ""),
-                "language": _detect_language(text),
+                "language": _detect_language(header, text),
                 "word_count": words,
                 "section_count": len(sections),
                 "relative_path": f"content/{path.name}",
                 "fk_grade": round(fk_grade(text), 2),
                 "explicit_difficulty": header.get("difficulty"),
+                "series": header.get("series"),
             }
         )
 
@@ -358,11 +434,19 @@ def build(kind: str, src: Path, out: Path) -> dict[str, int]:
         enrichment = cache[record["id"]]
         explicit = record.pop("explicit_difficulty")
         fk = record.pop("fk_grade")
+        series = record.pop("series")
         if kind == "stories":
-            difficulty = stories_difficulty(
-                fk, record["word_count"], explicit
-            )
-            age_min, age_max = STORIES_AGE[difficulty]
+            ages = None
+            if enrichment.get("age_min") and enrichment.get("age_max"):
+                ages = (enrichment["age_min"], enrichment["age_max"])
+            if ages is None and record["language"] == "zh":
+                ages = header_age_zh(explicit, series)
+            if ages is None:
+                # English stories (and any unresolved Chinese item): readability.
+                difficulty = stories_difficulty(fk, record["word_count"], explicit)
+                ages = STORIES_AGE[difficulty]
+            age_min, age_max = ages
+            difficulty = age_to_difficulty(age_min, age_max)
             item = {
                 "id": record["id"],
                 "title": record["title"],
@@ -408,9 +492,7 @@ def build(kind: str, src: Path, out: Path) -> dict[str, int]:
         "item_count": len(items),
         "items": items,
     }
-    (out / "catalog.json").write_text(
-        json.dumps(catalog, ensure_ascii=False, indent=2)
-    )
+    (out / "catalog.json").write_text(json.dumps(catalog, ensure_ascii=False, indent=2))
 
     # Copy the original Markdown files unchanged.
     for item in items:
@@ -418,20 +500,27 @@ def build(kind: str, src: Path, out: Path) -> dict[str, int]:
         shutil.copy2(src / name, out_content / name)
 
     llm_count = sum(1 for v in cache.values() if v.get("source") == "llm")
+    agent_count = sum(1 for v in cache.values() if v.get("source") == "agent")
     return {
         "items": len(items),
         "skipped_too_large": skipped_size,
         "skipped_empty": len(skipped_empty),
         "llm_enriched": llm_count,
+        "agent_enriched": agent_count,
         "empty_files": skipped_empty,
     }
 
 
-def _detect_language(text: str) -> str:
+def _detect_language(header: dict[str, str], text: str) -> str:
+    header_language = (header.get("language") or "").strip().lower()
+    if header_language and "中文" in header_language:
+        return "zh"
     match = re.search(r"language:\s*([a-z]{2,3})", text, re.I)
     cjk = len(re.findall(r"[\u4e00-\u9fff]", text[:3000]))
     if cjk > 50 and not match:
         return "zh"
+    if header_language and re.fullmatch(r"[a-z]{2,3}", header_language):
+        return header_language
     return match.group(1).lower() if match else "en"
 
 

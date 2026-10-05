@@ -1,10 +1,10 @@
 """The Ark Web Search integration — search and local content tools."""
+
 from __future__ import annotations
 
 import logging
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import (
     HomeAssistant,
@@ -13,7 +13,8 @@ from homeassistant.core import (
     SupportsResponse,
 )
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import config_validation as cv, llm
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import llm
 
 from .const import (
     CONF_API_KEY,
@@ -21,12 +22,14 @@ from .const import (
     CONF_CONTENT_MAX_FETCH_CHARS,
     CONF_DEFAULT_COUNT,
     CONF_ENGLISH_DIRECTORY,
+    CONF_RIDDLES_DIRECTORY,
     CONF_STORIES_DIRECTORY,
     CONF_TIMEOUT,
     DEFAULT_CONTENT_LIMIT,
     DEFAULT_CONTENT_MAX_FETCH_CHARS,
     DEFAULT_COUNT,
     DEFAULT_ENGLISH_DIRECTORY,
+    DEFAULT_RIDDLES_DIRECTORY,
     DEFAULT_STORIES_DIRECTORY,
     DEFAULT_TIMEOUT,
     DOMAIN,
@@ -35,6 +38,7 @@ from .const import (
 )
 from .content.catalog import (
     ENGLISH,
+    RIDDLES,
     STORIES,
     CatalogError,
     ContentCatalog,
@@ -66,17 +70,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     stories_directory = conf.get(CONF_STORIES_DIRECTORY, DEFAULT_STORIES_DIRECTORY)
     english_directory = conf.get(CONF_ENGLISH_DIRECTORY, DEFAULT_ENGLISH_DIRECTORY)
+    riddles_directory = conf.get(CONF_RIDDLES_DIRECTORY, DEFAULT_RIDDLES_DIRECTORY)
     content_limit = conf.get(CONF_CONTENT_DEFAULT_LIMIT, DEFAULT_CONTENT_LIMIT)
     content_max_fetch_chars = conf.get(
         CONF_CONTENT_MAX_FETCH_CHARS, DEFAULT_CONTENT_MAX_FETCH_CHARS
     )
 
-    stories_catalog = await _load_catalog(
-        hass, STORIES, stories_directory
-    )
-    english_catalog = await _load_catalog(
-        hass, ENGLISH, english_directory
-    )
+    stories_catalog = await _load_catalog(hass, STORIES, stories_directory)
+    english_catalog = await _load_catalog(hass, ENGLISH, english_directory)
+    riddles_catalog = await _load_catalog(hass, RIDDLES, riddles_directory)
 
     api = ArkSearchAPI(
         hass,
@@ -85,6 +87,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         timeout,
         stories_catalog=stories_catalog,
         english_catalog=english_catalog,
+        riddles_catalog=riddles_catalog,
         content_limit=content_limit,
         content_max_fetch_chars=content_max_fetch_chars,
     )
@@ -130,9 +133,7 @@ async def _load_catalog(
     the affected content tools return structured errors.
     """
     try:
-        return await hass.async_add_executor_job(
-            ContentCatalog.load, directory, kind
-        )
+        return await hass.async_add_executor_job(ContentCatalog.load, directory, kind)
     except CatalogError as err:
         _LOGGER.warning(
             "Local %s content library unavailable at configured directory: %s",

@@ -1,1 +1,1 @@
-"""Local content catalog support (stories / English reading libraries)."""
+"""Local content catalog support for stories, English reading and riddles."""

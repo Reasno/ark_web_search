@@ -1,8 +1,9 @@
 # Ark Web Search — Home Assistant 联网搜索与本地内容 LLM Tools
 
-给 Home Assistant Assist 提供一个 LLM API，包含五个 Tool：联网搜索、故事库
-列表/获取、英文分级阅读库列表/获取。一个 Conversation Agent 只需勾选一次
-`ark_web_search`，即可同时获得联网搜索、讲故事和英语陪练能力。
+给 Home Assistant Assist 提供一个 LLM API，包含七个 Tool：联网搜索、故事库
+列表/获取、英文分级阅读库列表/获取、脑筋急转弯与冷笑话库列表/获取。
+一个 Conversation Agent 只需勾选一次 `ark_web_search`，即可同时获得联网搜索、
+讲故事、英语陪练和猜谜互动能力。
 
 ## 设计要点
 
@@ -25,9 +26,12 @@
    ├── stories/
    │   ├── catalog.json
    │   └── content/          # 故事 Markdown 原文
-   └── english/
+   ├── english/
+   │   ├── catalog.json
+   │   └── content/          # 英文阅读 Markdown 原文
+   └── riddles/
        ├── catalog.json
-       └── content/          # 英文阅读 Markdown 原文
+       └── content/          # 谜面、选项与答案 Markdown
    ```
 
 3. 重启 HA，在「设置 → 设备与服务 → 添加集成」搜索 **Ark Web Search**，
@@ -40,6 +44,7 @@
 export ARK_API_KEY=... ARK_MODEL=doubao-seed-2-0-mini-260428
 python3 tools/build_catalog.py stories --src <源目录> --out <输出目录>/stories
 python3 tools/build_catalog.py english --src <源目录> --out <输出目录>/english
+python3 tools/build_riddles_catalog.py --src <下载数据目录> --out <输出目录>/riddles
 ```
 
 不设置 `ARK_API_KEY` 时使用确定性启发式生成摘要与主题；设置后调用 Ark
@@ -80,6 +85,15 @@ include_coaching (可选，仅 english_fetch) 是否返回陪练信息，默认 
 
 返回中 `has_more=true` 时用 `next_section_start` 继续读取。单次 fetch
 正文最多 12000 字符（可在 integration 选项中调整，2000–20000）。
+
+### `riddles_list` / `riddles_fetch`
+
+`riddles_list` 返回谜面和元数据，不返回答案；可按年龄、难度、类别筛选。
+类别包括逻辑脑筋急转弯、冷笑话脑筋急转弯、字谜和数字谜。
+
+Conversation Agent 必须先用 `riddles_list` 出一道题并等待用户猜。只有用户已经
+作答，或明确说不知道、放弃、要求揭晓时，才用同一 ID 调用 `riddles_fetch`
+读取答案；不可在出题回合提前获取或泄露 twist。
 
 ## 安全边界
 

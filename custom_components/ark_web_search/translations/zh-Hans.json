@@ -27,6 +27,7 @@
           "timeout": "搜索请求超时（秒）",
           "stories_directory": "故事库目录",
           "english_directory": "英文阅读库目录",
+          "riddles_directory": "脑筋急转弯与冷笑话库目录",
           "content_default_limit": "内容列表默认条数",
           "content_max_fetch_chars": "单次内容获取最大字符数"
         }

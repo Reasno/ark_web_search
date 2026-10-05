@@ -1,4 +1,4 @@
-"""The four LLM tools backed by the local content catalogs.
+"""LLM tools backed by the local stories, English and riddles catalogs.
 
 Tool contracts (names/parameters/response fields) follow the Reachy Mini
 content tools design: list tools return metadata only; fetch tools return
@@ -6,23 +6,23 @@ sectioned content with pagination. All inputs are validated here and all
 catalog exceptions are converted to structured responses; filesystem paths
 are never exposed outside this module's log messages.
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 from homeassistant.util.json import JsonObjectType
 
 from .catalog import (
+    MAX_LIST_LIMIT,
+    MAX_SECTION_COUNT,
     CatalogError,
     ContentCatalog,
     ContentReadError,
-    MAX_LIST_LIMIT,
-    MAX_SECTION_COUNT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -87,9 +87,7 @@ def _limit_value(value: Any, default: int) -> int:
 class _BaseListTool(llm.Tool):
     """Common list-tool logic."""
 
-    def __init__(
-        self, catalog: ContentCatalog | None, default_limit: int
-    ) -> None:
+    def __init__(self, catalog: ContentCatalog | None, default_limit: int) -> None:
         self._catalog = catalog
         self._default_limit = default_limit
 
@@ -103,11 +101,7 @@ class _BaseListTool(llm.Tool):
         limit = _limit_value(kwargs.get("limit"), self._default_limit)
         # Drop None values and the raw "limit" (it is normalised and passed
         # explicitly, otherwise list_items gets it twice).
-        kwargs = {
-            k: v
-            for k, v in kwargs.items()
-            if v is not None and k != "limit"
-        }
+        kwargs = {k: v for k, v in kwargs.items() if v is not None and k != "limit"}
         try:
             return catalog.list_items(limit=limit, **kwargs)
         except CatalogError as err:
@@ -169,9 +163,7 @@ class EnglishListTool(_BaseListTool):
         {
             vol.Optional("query"): str,
             vol.Optional("age"): vol.All(vol.Coerce(int), vol.Range(min=1, max=15)),
-            vol.Optional("grade"): vol.All(
-                vol.Coerce(int), vol.Range(min=1, max=6)
-            ),
+            vol.Optional("grade"): vol.All(vol.Coerce(int), vol.Range(min=1, max=6)),
             vol.Optional("level"): str,
             vol.Optional("difficulty"): vol.All(
                 vol.Coerce(int), vol.Range(min=1, max=10)
@@ -187,12 +179,47 @@ class EnglishListTool(_BaseListTool):
     )
 
 
+class RiddlesListTool(_BaseListTool):
+    """List riddle questions without exposing answers."""
+
+    name = "riddles_list"
+    description = (
+        "Select brain teasers, Chinese character riddles, number riddles, and "
+        "kid-friendly cold jokes from the local library. The response contains "
+        "questions but never answers. Present one question and wait for the "
+        "user to guess; do not call riddles_fetch yet."
+    )
+    parameters = vol.Schema(
+        {
+            vol.Optional("query"): str,
+            vol.Optional("age"): vol.All(vol.Coerce(int), vol.Range(min=1, max=15)),
+            vol.Optional("difficulty"): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=5)
+            ),
+            vol.Optional("category"): vol.In(
+                [
+                    "逻辑脑筋急转弯",
+                    "冷笑话脑筋急转弯",
+                    "字谜",
+                    "数字谜",
+                    "brainteaser",
+                    "cold_joke",
+                    "character_riddle",
+                    "number_riddle",
+                ]
+            ),
+            vol.Optional("limit"): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=MAX_LIST_LIMIT)
+            ),
+            vol.Optional("cursor"): str,
+        }
+    )
+
+
 class _BaseFetchTool(llm.Tool):
     """Common fetch-tool logic."""
 
-    def __init__(
-        self, catalog: ContentCatalog | None, max_fetch_chars: int
-    ) -> None:
+    def __init__(self, catalog: ContentCatalog | None, max_fetch_chars: int) -> None:
         self._catalog = catalog
         self._max_fetch_chars = max_fetch_chars
 
@@ -259,9 +286,7 @@ class StoriesFetchTool(_BaseFetchTool):
                 "An item ID from stories_list is required.",
             )
         section_start = self._int(kwargs.get("section_start"), 0, 0, 10000)
-        section_count = self._int(
-            kwargs.get("section_count"), 12, 1, MAX_SECTION_COUNT
-        )
+        section_count = self._int(kwargs.get("section_count"), 12, 1, MAX_SECTION_COUNT)
         item = self._catalog.get_item(item_id)
         if item is None:
             return _error(
@@ -272,9 +297,7 @@ class StoriesFetchTool(_BaseFetchTool):
             sections, total = self._fetch(item, section_start, section_count)
         except ContentReadError as err:
             _LOGGER.warning("stories_fetch read failure: %s", err)
-            return _error(
-                ERR_READ, "That story could not be read. Try another one."
-            )
+            return _error(ERR_READ, "That story could not be read. Try another one.")
         except CatalogError as err:
             _LOGGER.warning("stories_fetch failed: %s", err)
             return _error(ERR_READ, "That story could not be read.")
@@ -305,6 +328,52 @@ class StoriesFetchTool(_BaseFetchTool):
         if len(content) > self._max_fetch_chars:
             content = content[: self._max_fetch_chars].rstrip()
         return content, used
+
+
+class RiddlesFetchTool(_BaseFetchTool):
+    """Reveal one riddle answer after the user has attempted it."""
+
+    name = "riddles_fetch"
+    description = (
+        "Fetch the answer and explanation for one riddle ID returned by "
+        "riddles_list. Never call this when first asking the riddle. Call it "
+        "only after the user has guessed, or explicitly says they do not know, "
+        "give up, or asks for the answer."
+    )
+    parameters = vol.Schema({vol.Required("id"): str})
+
+    def _result(self, kwargs: dict[str, Any]) -> JsonObjectType:
+        if self._catalog is None:
+            return _error(
+                ERR_UNAVAILABLE,
+                "The local riddles library is not available right now.",
+            )
+        item_id = str(kwargs.get("id") or "").strip()
+        if not item_id:
+            return _error(
+                ERR_INVALID,
+                "A riddle ID from riddles_list is required.",
+            )
+        item = self._catalog.get_item(item_id)
+        if item is None:
+            return _error(
+                ERR_NOT_FOUND,
+                "No riddle with that ID. Use riddles_list to get a valid ID.",
+            )
+        try:
+            sections, _ = self._fetch(item, 0, MAX_SECTION_COUNT)
+        except ContentReadError as err:
+            _LOGGER.warning("riddles_fetch read failure: %s", err)
+            return _error(ERR_READ, "That riddle could not be read.")
+        except CatalogError as err:
+            _LOGGER.warning("riddles_fetch failed: %s", err)
+            return _error(ERR_READ, "That riddle could not be read.")
+        return {
+            "id": item["id"],
+            "question": item.get("title"),
+            "category": item.get("category"),
+            "content": "\n\n".join(sections),
+        }
 
 
 class EnglishFetchTool(_BaseFetchTool):
@@ -344,9 +413,7 @@ class EnglishFetchTool(_BaseFetchTool):
                 "An item ID from english_list is required.",
             )
         section_start = self._int(kwargs.get("section_start"), 0, 0, 10000)
-        section_count = self._int(
-            kwargs.get("section_count"), 12, 1, MAX_SECTION_COUNT
-        )
+        section_count = self._int(kwargs.get("section_count"), 12, 1, MAX_SECTION_COUNT)
         include_coaching = kwargs.get("include_coaching", True)
         if include_coaching is None:
             include_coaching = True
@@ -361,9 +428,7 @@ class EnglishFetchTool(_BaseFetchTool):
             sections, total = self._fetch(item, section_start, section_count)
         except ContentReadError as err:
             _LOGGER.warning("english_fetch read failure: %s", err)
-            return _error(
-                ERR_READ, "That reading could not be read. Try another one."
-            )
+            return _error(ERR_READ, "That reading could not be read. Try another one.")
         except CatalogError as err:
             _LOGGER.warning("english_fetch failed: %s", err)
             return _error(ERR_READ, "That reading could not be read.")

@@ -1,10 +1,10 @@
 """Config flow for the Ark Web Search integration."""
+
 from __future__ import annotations
 
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -20,19 +20,21 @@ from .const import (
     CONF_CONTENT_MAX_FETCH_CHARS,
     CONF_DEFAULT_COUNT,
     CONF_ENGLISH_DIRECTORY,
+    CONF_RIDDLES_DIRECTORY,
     CONF_STORIES_DIRECTORY,
     CONF_TIMEOUT,
-    DEFAULT_CONTENT_LIMIT,
-    DEFAULT_CONTENT_MAX_FETCH_CHARS,
-    DEFAULT_COUNT,
-    DEFAULT_ENGLISH_DIRECTORY,
-    DEFAULT_STORIES_DIRECTORY,
-    DEFAULT_TIMEOUT,
-    DOMAIN,
     CONTENT_FETCH_CHARS_MAX,
     CONTENT_FETCH_CHARS_MIN,
     CONTENT_LIMIT_MAX,
     CONTENT_LIMIT_MIN,
+    DEFAULT_CONTENT_LIMIT,
+    DEFAULT_CONTENT_MAX_FETCH_CHARS,
+    DEFAULT_COUNT,
+    DEFAULT_ENGLISH_DIRECTORY,
+    DEFAULT_RIDDLES_DIRECTORY,
+    DEFAULT_STORIES_DIRECTORY,
+    DEFAULT_TIMEOUT,
+    DOMAIN,
     MAX_COUNT,
 )
 from .search_api import ArkSearchError, async_search
@@ -70,17 +72,15 @@ class ArkWebSearchConfigFlow(ConfigFlow, domain=DOMAIN):
         schema = vol.Schema(
             {
                 vol.Required(CONF_API_KEY): cv.string,
-                vol.Optional(
-                    CONF_DEFAULT_COUNT, default=DEFAULT_COUNT
-                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=MAX_COUNT)),
+                vol.Optional(CONF_DEFAULT_COUNT, default=DEFAULT_COUNT): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=MAX_COUNT)
+                ),
                 vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(
                     vol.Coerce(int), vol.Range(min=5, max=60)
                 ),
             }
         )
-        return self.async_show_form(
-            step_id="user", data_schema=schema, errors=errors
-        )
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
     @staticmethod
     @callback
@@ -115,21 +115,19 @@ class ArkWebSearchOptionsFlow(OptionsFlow):
                 ): vol.All(vol.Coerce(int), vol.Range(min=5, max=60)),
                 vol.Optional(
                     CONF_STORIES_DIRECTORY,
-                    default=data.get(
-                        CONF_STORIES_DIRECTORY, DEFAULT_STORIES_DIRECTORY
-                    ),
+                    default=data.get(CONF_STORIES_DIRECTORY, DEFAULT_STORIES_DIRECTORY),
                 ): cv.string,
                 vol.Optional(
                     CONF_ENGLISH_DIRECTORY,
-                    default=data.get(
-                        CONF_ENGLISH_DIRECTORY, DEFAULT_ENGLISH_DIRECTORY
-                    ),
+                    default=data.get(CONF_ENGLISH_DIRECTORY, DEFAULT_ENGLISH_DIRECTORY),
+                ): cv.string,
+                vol.Optional(
+                    CONF_RIDDLES_DIRECTORY,
+                    default=data.get(CONF_RIDDLES_DIRECTORY, DEFAULT_RIDDLES_DIRECTORY),
                 ): cv.string,
                 vol.Optional(
                     CONF_CONTENT_DEFAULT_LIMIT,
-                    default=data.get(
-                        CONF_CONTENT_DEFAULT_LIMIT, DEFAULT_CONTENT_LIMIT
-                    ),
+                    default=data.get(CONF_CONTENT_DEFAULT_LIMIT, DEFAULT_CONTENT_LIMIT),
                 ): vol.All(
                     vol.Coerce(int),
                     vol.Range(min=CONTENT_LIMIT_MIN, max=CONTENT_LIMIT_MAX),

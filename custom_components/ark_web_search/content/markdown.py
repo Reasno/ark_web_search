@@ -4,6 +4,7 @@ Pure standard-library code with no Home Assistant dependencies so that the
 offline catalog build tool can reuse the exact same sectioning logic as the
 runtime tools (section_count in catalog.json must match fetch results).
 """
+
 from __future__ import annotations
 
 import re
@@ -32,6 +33,7 @@ _CJK_CHAR = re.compile(r"[\u4e00-\u9fff]")
 
 def _clean_inline(line: str) -> str:
     """Replace images with their alt text and tidy whitespace."""
+
     def repl(match: re.Match[str]) -> str:
         alt = match.group(1).strip()
         # Template placeholders are not real captions.
@@ -98,14 +100,10 @@ def split_header(raw: str) -> tuple[dict[str, str], list[str]]:
     body = lines[i:]
 
     # Project Gutenberg: keep only the text between the standard markers.
-    start_idx = next(
-        (k for k, line in enumerate(body) if _PG_START.match(line)), None
-    )
+    start_idx = next((k for k, line in enumerate(body) if _PG_START.match(line)), None)
     if start_idx is not None:
         body = body[start_idx + 1 :]
-    end_idx = next(
-        (k for k, line in enumerate(body) if _PG_END.match(line)), None
-    )
+    end_idx = next((k for k, line in enumerate(body) if _PG_END.match(line)), None)
     if end_idx is not None:
         body = body[:end_idx]
 
@@ -176,12 +174,17 @@ def parse_sections(raw: str) -> tuple[dict[str, str], list[str]]:
     title = fields.get("title")
 
     def _norm_title(text: str) -> str:
-        return re.sub(r"[^a-z0-9]+", "", text.lower())
+        # Keep Latin letters/digits and CJK characters. With an ASCII-only
+        # pattern every Chinese string normalised to "", causing the first
+        # Chinese body paragraph to be mistaken for a repeated title.
+        return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", text.lower())
 
     if idx < len(body):
         line = body[idx].strip()
+        normalised_line = _norm_title(line)
+        normalised_title = _norm_title(title) if title is not None else ""
         matched = bool(_H1.match(line)) or (
-            title is not None and _norm_title(line) == _norm_title(title)
+            bool(normalised_title) and normalised_line == normalised_title
         )
         if matched:
             idx += 1
