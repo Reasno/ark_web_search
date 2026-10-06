@@ -88,6 +88,8 @@ def _limit_value(value: Any, default: int) -> int:
 class _BaseListTool(llm.Tool):
     """Common list-tool logic."""
 
+    randomize_unfiltered = False
+
     def __init__(self, catalog: ContentCatalog | None, default_limit: int) -> None:
         self._catalog = catalog
         self._default_limit = default_limit
@@ -99,12 +101,17 @@ class _BaseListTool(llm.Tool):
                 ERR_UNAVAILABLE,
                 "The local content library is not available right now.",
             )
+        randomize = self.randomize_unfiltered and not kwargs
         limit = _limit_value(kwargs.get("limit"), self._default_limit)
         # Drop None values and the raw "limit" (it is normalised and passed
         # explicitly, otherwise list_items gets it twice).
         kwargs = {k: v for k, v in kwargs.items() if v is not None and k != "limit"}
         try:
-            return catalog.list_items(limit=limit, **kwargs)
+            return catalog.list_items(
+                limit=limit,
+                randomize=randomize,
+                **kwargs,
+            )
         except CatalogError as err:
             _LOGGER.warning("%s failed: %s", self.name, err)
             return _error(
@@ -126,6 +133,7 @@ class _BaseListTool(llm.Tool):
 class StoriesListTool(_BaseListTool):
     """List metadata from the local story library."""
 
+    randomize_unfiltered = True
     name = "stories_list"
     description = (
         "MANDATORY for any request to tell, hear, choose, or continue with a "
@@ -186,6 +194,7 @@ class EnglishListTool(_BaseListTool):
 class RiddlesListTool(_BaseListTool):
     """List riddle questions without exposing answers."""
 
+    randomize_unfiltered = True
     name = "riddles_list"
     description = (
         "MANDATORY first action for any request to guess, hear, or play a "

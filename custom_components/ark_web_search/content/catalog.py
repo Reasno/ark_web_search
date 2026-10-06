@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
 import re
 from typing import Any
 
@@ -228,6 +229,7 @@ class ContentCatalog:
         max_words: int | None = None,
         limit: int = DEFAULT_LIST_LIMIT,
         cursor: str | None = None,
+        randomize: bool = False,
     ) -> dict[str, Any]:
         """Filter, sort and paginate catalog items (metadata only)."""
         terms: list[str] = []
@@ -241,7 +243,7 @@ class ContentCatalog:
         if grade is not None and self.kind == ENGLISH:
             grade_band = (max(1, 2 * grade - 1), min(10, 2 * grade))
 
-        candidates = self.items
+        candidates = list(self.items)
         if difficulty is not None:
             candidates = [c for c in candidates if c.get("difficulty") == difficulty]
         if language:
@@ -300,6 +302,8 @@ class ContentCatalog:
 
         scored.sort(key=lambda pair: pair[0])
         ordered = [item for _, item in scored]
+        if randomize:
+            random.shuffle(ordered)
 
         offset = decode_cursor(cursor)
         page = ordered[offset : offset + limit]
