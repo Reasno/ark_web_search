@@ -8,12 +8,15 @@ Anthropic, Google, AI Tasks etc.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import llm
 from homeassistant.util.json import JsonObjectType
+from voluptuous_openapi import UNSUPPORTED
 
 from .const import (
     DEFAULT_CONTENT_LIMIT,
@@ -35,6 +38,14 @@ from .content.tools import (
 from .search_api import ArkSearchError, async_search
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _schema_serializer(value: Any) -> Any:
+    """Keep coercing validators represented by their original JSON type."""
+    if value is cv.boolean:
+        return {"type": "boolean"}
+    return UNSUPPORTED
+
 
 WEB_SEARCH_PROMPT = (
     "You can search the live internet with the web_search tool. Call it only "
@@ -213,4 +224,5 @@ class ArkSearchAPI(llm.API):
             api_prompt=API_PROMPT,
             llm_context=llm_context,
             tools=self._tools,
+            custom_serializer=_schema_serializer,
         )

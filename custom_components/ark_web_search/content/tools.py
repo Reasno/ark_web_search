@@ -14,6 +14,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import llm
 from homeassistant.util.json import JsonObjectType
 
@@ -399,7 +400,7 @@ class EnglishFetchTool(_BaseFetchTool):
             vol.Optional("section_count"): vol.All(
                 vol.Coerce(int), vol.Range(min=1, max=MAX_SECTION_COUNT)
             ),
-            vol.Optional("include_coaching"): bool,
+            vol.Optional("include_coaching"): cv.boolean,
         }
     )
 
