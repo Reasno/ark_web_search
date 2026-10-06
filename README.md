@@ -72,7 +72,7 @@ english_list: query, age(1-15), grade(1-6), level, difficulty(1-10),
               max_words, limit, cursor
 ```
 
-`limit` 最大 20；结果超过一页时返回不透明 `next_cursor`。`stories_list` 无参数调用时随机返回故事；带任意参数时保持筛选与稳定排序。
+`limit` 最大 20；结果超过一页时返回不透明 `next_cursor`。`stories_list` 无筛选调用（无参数或仅指定 `limit`）时随机返回故事；带其他参数时保持筛选与稳定排序。
 
 ### `stories_fetch` / `english_fetch`
 
@@ -90,7 +90,7 @@ include_coaching (可选，仅 english_fetch) 是否返回陪练信息，默认 
 
 ### `riddles_list` / `riddles_fetch`
 
-`riddles_list` 返回谜面和元数据，不返回答案；可按年龄、难度、类别筛选。无参数调用时随机返回题目，带任意参数时保持筛选与稳定排序。
+`riddles_list` 返回谜面和元数据，不返回答案；可按年龄、难度、类别筛选。无筛选调用（无参数或仅指定 `limit`）时随机返回题目，带其他参数时保持筛选与稳定排序。
 正式库只包含经过逐条审核的逻辑脑筋急转弯、冷笑话式脑筋急转弯和数字谜；
 视觉依赖强、低质量的字谜不进入语音库。
 

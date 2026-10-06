@@ -101,7 +101,7 @@ class _BaseListTool(llm.Tool):
                 ERR_UNAVAILABLE,
                 "The local content library is not available right now.",
             )
-        randomize = self.randomize_unfiltered and not kwargs
+        randomize = self.randomize_unfiltered and set(kwargs) <= {"limit"}
         limit = _limit_value(kwargs.get("limit"), self._default_limit)
         # Drop None values and the raw "limit" (it is normalised and passed
         # explicitly, otherwise list_items gets it twice).
