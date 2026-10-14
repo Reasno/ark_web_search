@@ -26,7 +26,7 @@ def _start_parameters(*, english: bool = False, riddle: bool = False) -> vol.Sch
         vol.Optional("difficulty"): vol.In(["easy", "medium", "hard"]),
     }
     if english:
-        parameters[vol.Optional("grade", description="Chinese primary-school grade.")] = vol.All(int, vol.Range(min=1, max=6))
+        parameters[vol.Optional("grade", description="Chinese primary-school grade; takes priority if difficulty conflicts.")] = vol.All(int, vol.Range(min=1, max=6))
         parameters[vol.Optional("reading_id", description="Saved English material reference; takes priority over filters.")] = vol.All(
             str, vol.Length(min=1, max=200)
         )
@@ -107,6 +107,7 @@ class EnglishStartTool(ContentTool):
         "repetition (practice=repeat/read_aloud) or ask one comprehension question. "
         "Explain unfamiliar words briefly in Chinese. Judge pronunciation only from "
         "actual audio evidence. If topic_matched=false, identify the different topic. "
+        "If difficulty_matched=false, explain that the passage follows the requested grade. "
         "STOP and wait for the learner before continuing."
     )
     parameters = _start_parameters(english=True)

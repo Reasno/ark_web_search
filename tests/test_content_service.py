@@ -107,7 +107,14 @@ class ContentServiceTest(unittest.TestCase):
         sixth = self.call("english_start", grade=6)
         self.assertIn(sixth["title"], {"Title 9", "Title 10"})
         self.assertEqual(sixth["practice"], "comprehension")
-        self.assertEqual(self.call("english_start", grade=6, difficulty="easy")["error_code"], "no_match")
+        for grade in range(1, 7):
+            for difficulty in ("easy", "medium", "hard"):
+                result = self.call("english_start", grade=grade, difficulty=difficulty)
+                self.assertIn("text", result)
+        conflict = self.call("english_start", grade=6, difficulty="easy", topic="Title 10")
+        self.assertFalse(conflict["difficulty_matched"])
+        self.assertEqual(conflict["level"], 10)
+        self.assertTrue(conflict["topic_matched"])
 
     def test_concurrent_starts_have_unique_refs_and_do_not_repeat_in_available_pool(self):
         with ThreadPoolExecutor(max_workers=8) as pool:

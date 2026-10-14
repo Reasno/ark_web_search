@@ -39,7 +39,8 @@ python3 tools/build_riddles_catalog.py --src <下载数据目录> --out <输出�
 - `difficulty`：`easy | medium | hard`。故事对应素材等级 1 / 2 / 3–5，
   谜语对应 1–2 / 3 / 4–5，英语对应 1–3 / 4–6 / 7–10。
 - `grade`：中国小学 1–6 年级，依次对应英语等级 1–2、2–4、3–5、5–7、7–9、9–10；
-  与显式难度同时指定时取交集。
+  与显式难度同时指定时优先取交集。交集为空时保留年级范围并返回
+  `difficulty_matched=false`，代理说明材料按年级选取。
 - `kind`：`brainteaser | cold_joke | number_riddle`。
 - `practice`：`repeat | read_aloud | comprehension`，表示跟读、朗读或阅读理解。
 - `reading_id`：英语素材的持久引用，用于保存学习进度。指定时优先于筛选条件，
@@ -77,7 +78,7 @@ python3 tools/build_riddles_catalog.py --src <下载数据目录> --out <输出�
 | 错误码 | 行为 |
 |---|---|
 | `library_unavailable` | 对应素材库不可用 |
-| `no_match` | 难度、年级或类别条件无交集；可放宽条件 |
+| `no_match` | 对应难度、年级、类别或保存的素材不存在；可重新选择 |
 | `read_failed` | 文件缺失、超限或结构不完整；可请求另一项 |
 | `invalid_reference` | 引用失效、类型错误或属于其他会话；重新开始 |
 | `missing_identity` | 没有 HA 认证用户 |

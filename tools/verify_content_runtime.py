@@ -35,6 +35,10 @@ async def main(root: Path):
                 assert "".join(chunks) == text, (kind, item["id"], "content lost")
         counts[kind] = len(catalog.items)
     service = ContentService(catalogs)
+    for grade in range(1, 7):
+        for difficulty in ("easy", "medium", "hard"):
+            result = service.call("english_start", {"grade": grade, "difficulty": difficulty}, "preflight")
+            assert not result.get("error_code"), (grade, difficulty, result)
 
     class Hass:
         async def async_add_executor_job(self, func, *args):

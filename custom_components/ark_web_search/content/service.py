@@ -177,12 +177,18 @@ class ContentService:
             candidates = [item]
             args = {}
         difficulty = args.get("difficulty")
+        grade = args.get("grade") if kind == "english" else None
+        if grade:
+            lo, hi = GRADE_BANDS[grade - 1]
+            candidates = [i for i in candidates if lo <= (i.get("difficulty") or 0) <= hi]
+        difficulty_matched = None
         if difficulty:
             lo, hi = BANDS[kind][difficulty]
-            candidates = [i for i in candidates if lo <= (i.get("difficulty") or 0) <= hi]
-        if kind == "english" and args.get("grade"):
-            lo, hi = GRADE_BANDS[args["grade"] - 1]
-            candidates = [i for i in candidates if lo <= (i.get("difficulty") or 0) <= hi]
+            matched = [i for i in candidates if lo <= (i.get("difficulty") or 0) <= hi]
+            if grade and candidates and not matched:
+                difficulty_matched = False
+            else:
+                candidates = matched
         if kind == "riddle" and args.get("kind"):
             candidates = [i for i in candidates if
                           RIDDLE_KINDS.get(i.get("riddle_kind") or i.get("category")) == args["kind"]]
@@ -254,6 +260,8 @@ class ContentService:
                 result["practice"] = "repeat" if level <= 3 else "read_aloud" if level <= 6 else "comprehension"
         if topic_matched is not None:
             result["topic_matched"] = topic_matched
+        if difficulty_matched is not None:
+            result["difficulty_matched"] = difficulty_matched
         if args.get("age") is not None:
             result["age_matched"] = best_age == 0
         return result

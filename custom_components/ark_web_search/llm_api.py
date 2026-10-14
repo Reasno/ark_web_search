@@ -64,7 +64,7 @@ Start with story_start, riddle_next or english_start; unspecified filters may be
 Present only the returned material. Tell stories faithfully in Chinese; practise English
 in short passages. Reveal riddle answers only after a guess or an explicit request.
 Wait for the user before continuing, and copy next_cursor exactly. A null cursor means
-completion. If topic_matched or age_matched is false, explain the mismatch briefly.
+completion. If topic_matched, age_matched or difficulty_matched is false, explain the mismatch briefly.
 Never invent content, references or unavailable results. On invalid_reference, explain
 that the reading expired and offer a new item. Follow each tool's interaction rules."""
 
