@@ -18,14 +18,12 @@ from homeassistant.helpers import llm
 
 from .const import (
     CONF_API_KEY,
-    CONF_CONTENT_DEFAULT_LIMIT,
     CONF_CONTENT_MAX_FETCH_CHARS,
     CONF_DEFAULT_COUNT,
     CONF_ENGLISH_DIRECTORY,
     CONF_RIDDLES_DIRECTORY,
     CONF_STORIES_DIRECTORY,
     CONF_TIMEOUT,
-    DEFAULT_CONTENT_LIMIT,
     DEFAULT_CONTENT_MAX_FETCH_CHARS,
     DEFAULT_COUNT,
     DEFAULT_ENGLISH_DIRECTORY,
@@ -71,7 +69,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     stories_directory = conf.get(CONF_STORIES_DIRECTORY, DEFAULT_STORIES_DIRECTORY)
     english_directory = conf.get(CONF_ENGLISH_DIRECTORY, DEFAULT_ENGLISH_DIRECTORY)
     riddles_directory = conf.get(CONF_RIDDLES_DIRECTORY, DEFAULT_RIDDLES_DIRECTORY)
-    content_limit = conf.get(CONF_CONTENT_DEFAULT_LIMIT, DEFAULT_CONTENT_LIMIT)
     content_max_fetch_chars = conf.get(
         CONF_CONTENT_MAX_FETCH_CHARS, DEFAULT_CONTENT_MAX_FETCH_CHARS
     )
@@ -88,7 +85,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         stories_catalog=stories_catalog,
         english_catalog=english_catalog,
         riddles_catalog=riddles_catalog,
-        content_limit=content_limit,
         content_max_fetch_chars=content_max_fetch_chars,
     )
     unregister_api = llm.async_register_api(hass, api)

@@ -16,7 +16,6 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import (
     CONF_API_KEY,
-    CONF_CONTENT_DEFAULT_LIMIT,
     CONF_CONTENT_MAX_FETCH_CHARS,
     CONF_DEFAULT_COUNT,
     CONF_ENGLISH_DIRECTORY,
@@ -25,9 +24,6 @@ from .const import (
     CONF_TIMEOUT,
     CONTENT_FETCH_CHARS_MAX,
     CONTENT_FETCH_CHARS_MIN,
-    CONTENT_LIMIT_MAX,
-    CONTENT_LIMIT_MIN,
-    DEFAULT_CONTENT_LIMIT,
     DEFAULT_CONTENT_MAX_FETCH_CHARS,
     DEFAULT_COUNT,
     DEFAULT_ENGLISH_DIRECTORY,
@@ -125,13 +121,6 @@ class ArkWebSearchOptionsFlow(OptionsFlow):
                     CONF_RIDDLES_DIRECTORY,
                     default=data.get(CONF_RIDDLES_DIRECTORY, DEFAULT_RIDDLES_DIRECTORY),
                 ): cv.string,
-                vol.Optional(
-                    CONF_CONTENT_DEFAULT_LIMIT,
-                    default=data.get(CONF_CONTENT_DEFAULT_LIMIT, DEFAULT_CONTENT_LIMIT),
-                ): vol.All(
-                    vol.Coerce(int),
-                    vol.Range(min=CONTENT_LIMIT_MIN, max=CONTENT_LIMIT_MAX),
-                ),
                 vol.Optional(
                     CONF_CONTENT_MAX_FETCH_CHARS,
                     default=data.get(

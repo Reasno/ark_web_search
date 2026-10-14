@@ -1,47 +1,20 @@
-# Ark Web Search — Home Assistant 联网搜索与本地内容 LLM Tools
+# Ark Web Search & Kids Content
 
-给 Home Assistant Assist 提供一个 LLM API，包含七个 Tool：联网搜索、故事库
-列表/获取、英文分级阅读库列表/获取、脑筋急转弯与冷笑话库列表/获取。
-一个 Conversation Agent 只需勾选一次 `ark_web_search`，即可同时获得联网搜索、
-讲故事、英语陪练和猜谜互动能力。
+Home Assistant LLM API `ark_web_search` 提供联网搜索、儿童故事、猜谜与英语阅读。
+内容工具直接从本地审核素材中选取一篇并返回可朗读内容；调用过程不访问生成模型。
 
-## 设计要点
+## 安装与配置
 
-- **不侵入任何会话代理**。通过 HA 原生 `llm.async_register_api()` 注册为一个
-  LLM API（id = `ark_web_search`），任何支持 `llm_hass_api` 的集成
-  （`local_openai` / OpenAI / Anthropic / Google / AI Task）都能在配置项里勾选，
-  和 `assist`、`memory` 并列。
-- **搜索**调用火山引擎豆包搜索 Custom 版；**内容**来自本地素材文件，
-  不经过网络。
-- API Key 通过 config flow UI 录入，存于 config entry，不进 YAML。
+1. 将 `custom_components/ark_web_search` 安装到 HA 的 `/config/custom_components`。
+2. 在 `/config/media/reachy_content` 下放置 `stories`、`english`、`riddles` 三个目录。
+   每个目录包含 `catalog.json` 与目录内的 Markdown 素材。
+3. 重启 Home Assistant 服务，在「设备与服务」添加 **Ark Web Search**，填写 Ark API Key。
+4. 在对话代理或 MCP Server 的 LLM API 配置中选择 `ark_web_search`。
 
-## 安装
-
-1. 把 `custom_components/ark_web_search/` 拷到 HA 的
-   `/config/custom_components/`。
-2. 把素材目录放到 HA media 目录：
-
-   ```text
-   /config/media/reachy_content/
-   ├── stories/
-   │   ├── catalog.json
-   │   └── content/          # 故事 Markdown 原文
-   ├── english/
-   │   ├── catalog.json
-   │   └── content/          # 英文阅读 Markdown 原文
-   └── riddles/
-       ├── catalog.json
-       └── content/          # 谜面、选项与答案 Markdown
-   ```
-
-3. 重启 HA，在「设置 → 设备与服务 → 添加集成」搜索 **Ark Web Search**，
-   填入 Ark API Key。
-4. 在 Conversation Agent 的配置里勾选 LLM API `ark_web_search`。
-
-素材目录可用 `tools/build_catalog.py` 从 Markdown 源文件构建：
+API Key 仅存储于 HA config entry。素材路径与内容字符上限可在集成选项中设置。
+素材构建命令：
 
 ```bash
-export ARK_API_KEY=... ARK_MODEL=doubao-seed-2-0-mini-260428
 python3 tools/build_catalog.py stories --src <源目录> --out <输出目录>/stories \
   --whitelist tools/story_quality_whitelist.json
 python3 tools/build_catalog.py english --src <源目录> --out <输出目录>/english
@@ -49,58 +22,85 @@ python3 tools/build_riddles_catalog.py --src <下载数据目录> --out <输出�
   --whitelist tools/riddle_quality_whitelist.json
 ```
 
-不设置 `ARK_API_KEY` 时使用确定性启发式生成摘要与主题；设置后调用 Ark
-Chat Completions 生成，结果缓存在输出目录的 `.enrichment_cache.json`。
+## 内容接口
 
-## Tool 契约
+| 工具 | 模型参数 | 返回内容 |
+|---|---|---|
+| `riddle_next` | 可选 `topic`、`age`、`difficulty`、`kind` | `id`、`question`、可选 `options` |
+| `riddle_answer` | 可选 `id` | `answer`、可选 `explanation` |
+| `story_start` | 可选 `topic`、`age`、`difficulty` | `title`、`text`、`next_cursor` |
+| `story_continue` | 必填 `cursor` | `text`、`next_cursor` |
+| `english_start` | 可选 `topic`、`age`、`difficulty`、`grade` | `title`、`text`、`next_cursor`、`practice` |
+| `english_continue` | 必填 `cursor` | `text`、`next_cursor` |
 
-### `web_search`
+- `topic`：最多 100 字符的主题或标题。没有命中时返回其他符合条件的材料，并标记
+  `topic_matched=false`；代理应向用户说明。未指定主题时不返回该字段。
+- `age`：1–15 岁，以年龄距离排序；返回 `age_matched` 表示是否落在素材推荐范围。
+- `difficulty`：`easy | medium | hard`。故事对应素材等级 1 / 2 / 3–5，
+  谜语对应 1–2 / 3 / 4–5，英语对应 1–3 / 4–6 / 7–10。
+- `grade`：中国小学 1–6 年级，依次对应英语等级 1–2、2–4、3–5、5–7、7–9、9–10；
+  与显式难度同时指定时取交集。
+- `kind`：`brainteaser | cold_joke | number_riddle`。
+- `practice`：`repeat | read_aloud | comprehension`，表示跟读、朗读或阅读理解。
+- `next_cursor`：下一段位置；`null` 表示结束。客户端原样传给 `cursor`，无需计算页数。
 
-```text
-query      (必填) 关键词，≤100 字，单个查询
-time_range (可选) OneDay | OneWeek | OneMonth | OneYear
-count      (可选) 1~10，默认 5
+故事每段最多 700 字符，英语每段最多 240 字符；分段优先选择句子、换行与单词边界。
+连续拼接各段可恢复经过 Markdown 解析的全部正文。故事按原意用中文讲述，英文素材由
+对话模型忠实翻译；英语练习保持英文，每段结束等待用户。
+
+谜题首次结果仅包含题目与选项。代理应在用户猜测、放弃或要求揭晓后调用
+`riddle_answer`，不得在出题回合调用答案工具。服务端不判断用户话语是否构成揭晓授权，
+该时序由代理执行。
+
+## 会话与位置
+
+六个接口均接受可选的 `session_id`（1–128 字符）。集成客户端应为每段对话生成随机标识，
+在请求间复用并从模型参数中隐藏。Reachy 会自动完成此操作。
+
+状态归属由 HA 认证用户和 `session_id` 共同确定；HTTP 连接重建不改变会话身份。
+每个会话保存各类最近 64 个素材 ID，选择时优先使用未出现在该记录中的候选项。
+标题/主题、难度、年级仍限定候选集合，候选耗尽时允许重复。
+
+谜题 ID 为 24 位随机十六进制标识；续读游标由随机标识与固定段落位置组成。
+重复同一游标返回同一段，切换题材或开启另一篇阅读不会改变已有游标的含义。
+素材快照自选取起有效 30 分钟，集成最多保存 128 份素材与 256 个会话。
+达到容量时淘汰最早素材及最近最少使用会话；服务重启会清空状态。
+
+没有 `session_id` 的客户端必须显式保存谜题 ID 和续读游标；不能省略谜题 ID，
+也不享有会话去重。引用仍绑定认证用户。需要对话隔离的客户端必须提供独立会话标识。
+
+错误返回统一为 `{"error_code": "...", "message": "..."}`：
+
+| 错误码 | 行为 |
+|---|---|
+| `library_unavailable` | 对应素材库不可用 |
+| `no_match` | 难度、年级或类别条件无交集；可放宽条件 |
+| `read_failed` | 文件缺失、超限或结构不完整；可请求另一项 |
+| `invalid_reference` | 引用失效、类型错误或属于其他会话；重新开始 |
+| `missing_identity` | 没有 HA 认证用户 |
+
+## 联网搜索
+
+`web_search` 接受必填 `query`，可选 `time_range`（`OneDay | OneWeek | OneMonth | OneYear`）
+和 `count`（1–10，默认 5），返回来源、摘要与 URL。用于依赖实时外部信息的问题。
+
+## 运行边界与验证
+
+工具参数不接受文件路径。目录解析在加载与读取时校验；单个素材文件上限 1 MB。
+某个内容库故障不影响其他内容库及搜索。内容输出仅包含交互所需正文与引用。
+
+```bash
+python3 -m unittest discover -s tests -v
 ```
 
-### `stories_list` / `english_list`
+测试覆盖会话隔离、答案分离、去重、年级边界、重试幂等、过期与容量淘汰，以及分段完整性。
 
-只返回元数据（标题、摘要、年龄、难度/级别、主题、字数），不返回正文。
+Git 部署使用已推送到 `origin/main` 的提交：
 
-```text
-stories_list: query, age(1-15), difficulty(1-5), language, limit, cursor
-english_list: query, age(1-15), grade(1-6), level, difficulty(1-10),
-              max_words, limit, cursor
+```bash
+python3 deploy/git-deploy.py
 ```
 
-`limit` 最大 20；结果超过一页时返回不透明 `next_cursor`。`stories_list` 无筛选调用（无参数或仅指定 `limit`）时随机返回故事；带其他参数时保持筛选与稳定排序。
-
-### `stories_fetch` / `english_fetch`
-
-只接受 list 返回的 `id`，不接受文件路径。长文按 section 分页：
-
-```text
-id              (必填) list 返回的内容 ID
-section_start   (可选) 起始 section，默认 0
-section_count   (可选) 本次 section 数，最大 30
-include_coaching (可选，仅 english_fetch) 是否返回陪练信息，默认 true
-```
-
-返回中 `has_more=true` 时用 `next_section_start` 继续读取。单次 fetch
-正文最多 12000 字符（可在 integration 选项中调整，2000–20000）。
-
-### `riddles_list` / `riddles_fetch`
-
-`riddles_list` 返回谜面和元数据，不返回答案；可按年龄、难度、类别筛选。无筛选调用（无参数或仅指定 `limit`）时随机返回题目，带其他参数时保持筛选与稳定排序。
-正式库只包含经过逐条审核的逻辑脑筋急转弯、冷笑话式脑筋急转弯和数字谜；
-视觉依赖强、低质量的字谜不进入语音库。
-
-Conversation Agent 必须先用 `riddles_list` 出一道题并等待用户猜。只有用户已经
-作答，或明确说不知道、放弃、要求揭晓时，才用同一 ID 调用 `riddles_fetch`
-读取答案；不可在出题回合提前获取或泄露 twist。
-
-## 安全边界
-
-- 只接受内容 ID，参数不接受文件路径；`catalog.json` 中的相对路径在加载和
-  读取时都做目录穿越校验。
-- 单个素材文件超过 1 MB 不加载；list 最多 20 条；fetch 正文有字符上限。
-- 素材库缺失或损坏不影响搜索工具，内容工具返回结构化错误。
+脚本通过校验主机密钥的 SSH 传输 Git bundle，在 HA 容器中检查全部素材、工具 schema
+与核心测试，通过后备份组件并重启 Home Assistant 容器。API 启动失败时恢复备份。
+配置、密钥与素材保留在设备；部署后的实际 MCP 交互需通过客户端验收。
