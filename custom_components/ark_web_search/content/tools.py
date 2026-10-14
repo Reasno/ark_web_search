@@ -27,6 +27,9 @@ def _start_parameters(*, english: bool = False, riddle: bool = False) -> vol.Sch
     }
     if english:
         parameters[vol.Optional("grade", description="Chinese primary-school grade.")] = vol.All(int, vol.Range(min=1, max=6))
+        parameters[vol.Optional("reading_id", description="Saved English material reference; takes priority over filters.")] = vol.All(
+            str, vol.Length(min=1, max=200)
+        )
     if riddle:
         parameters[vol.Optional("kind")] = vol.In(["brainteaser", "cold_joke", "number_riddle"])
     return vol.Schema(parameters)
@@ -98,6 +101,9 @@ class EnglishStartTool(ContentTool):
     description = (
         "Use for English reading practice, including '练英语'. Returns one short "
         "passage immediately; no filters required. Read the English, then invite "
+        "practice. To revisit saved material, pass its reading_id; this starts at "
+        "the beginning. Save returned reading_id and level as learning progress when appropriate. "
+        "For the current reading use english_continue. Invite "
         "repetition (practice=repeat/read_aloud) or ask one comprehension question. "
         "Explain unfamiliar words briefly in Chinese. Judge pronunciation only from "
         "actual audio evidence. If topic_matched=false, identify the different topic. "

@@ -117,6 +117,16 @@ class ContentServiceTest(unittest.TestCase):
         for result in results:
             self.assertIn("answer", self.call("riddle_answer", id=result["id"]))
 
+    def test_saved_english_reference_survives_service_restart_and_accepts_catalog_id(self):
+        first = self.call("english_start", grade=6)
+        self.service = ContentService(self.catalogs)
+        resumed = self.call("english_start", reading_id=first["reading_id"], grade=1, topic="unrelated")
+        self.assertEqual(resumed["reading_id"], first["reading_id"])
+        self.assertEqual(resumed["text"], first["text"])
+        self.assertEqual(resumed["level"], first["level"])
+        self.assertEqual(self.call("english_start", reading_id="10")["title"], "Title 10")
+        self.assertEqual(self.call("english_start", reading_id="missing")["error_code"], "no_match")
+
     def test_failures_do_not_leak_paths_or_spoil_questions(self):
         self.service.catalogs["stories"] = None
         self.assertEqual(self.call("story_start")["error_code"], "library_unavailable")

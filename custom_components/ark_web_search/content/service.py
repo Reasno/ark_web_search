@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import OrderedDict, deque
 from dataclasses import dataclass, field
+import hashlib
 import random
 import re
 import secrets
@@ -25,6 +26,10 @@ RIDDLE_KINDS = {
     "逻辑脑筋急转弯": "brainteaser", "cold_joke": "cold_joke",
     "冷笑话脑筋急转弯": "cold_joke", "number_riddle": "number_riddle", "数字谜": "number_riddle",
 }
+
+def reading_id(item: dict) -> str:
+    """Stable compact English material reference for learning-progress records."""
+    return "en_" + hashlib.sha256(item["id"].encode()).hexdigest()[:16]
 
 
 def error(code: str, message: str) -> dict[str, Any]:
@@ -101,6 +106,8 @@ class ContentService:
         clock=time.monotonic, choose=random.choice,
     ) -> None:
         self.catalogs = catalogs
+        english = catalogs.get("english")
+        self.english_ids = {reading_id(item): item for item in english.items} if english else {}
         self.max_chars = max_chars
         self.ttl = ttl
         self.max_readings = max_readings
@@ -162,6 +169,13 @@ class ContentService:
         if catalog is None or not catalog.available:
             return error("library_unavailable", "This content library is unavailable.")
         candidates = list(catalog.items)
+        resume = args.get("reading_id") if kind == "english" else None
+        if resume:
+            item = self.english_ids.get(resume) or catalog.get_item(resume)
+            if item is None:
+                return error("no_match", "Saved English material is unavailable. Choose a new reading.")
+            candidates = [item]
+            args = {}
         difficulty = args.get("difficulty")
         if difficulty:
             lo, hi = BANDS[kind][difficulty]
@@ -235,6 +249,8 @@ class ContentService:
             result["title"] = reading.title
             if kind == "english":
                 level = item.get("difficulty") or 2
+                result["reading_id"] = reading_id(item)
+                result["level"] = level
                 result["practice"] = "repeat" if level <= 3 else "read_aloud" if level <= 6 else "comprehension"
         if topic_matched is not None:
             result["topic_matched"] = topic_matched

@@ -30,7 +30,7 @@ python3 tools/build_riddles_catalog.py --src <下载数据目录> --out <输出�
 | `riddle_answer` | 可选 `id` | `answer`、可选 `explanation` |
 | `story_start` | 可选 `topic`、`age`、`difficulty` | `title`、`text`、`next_cursor` |
 | `story_continue` | 必填 `cursor` | `text`、`next_cursor` |
-| `english_start` | 可选 `topic`、`age`、`difficulty`、`grade` | `title`、`text`、`next_cursor`、`practice` |
+| `english_start` | 可选 `topic`、`age`、`difficulty`、`grade`、`reading_id` | `title`、`text`、`next_cursor`、`practice`、`reading_id`、`level` |
 | `english_continue` | 必填 `cursor` | `text`、`next_cursor` |
 
 - `topic`：最多 100 字符的主题或标题。没有命中时返回其他符合条件的材料，并标记
@@ -42,6 +42,9 @@ python3 tools/build_riddles_catalog.py --src <下载数据目录> --out <输出�
   与显式难度同时指定时取交集。
 - `kind`：`brainteaser | cold_joke | number_riddle`。
 - `practice`：`repeat | read_aloud | comprehension`，表示跟读、朗读或阅读理解。
+- `reading_id`：英语素材的持久引用，用于保存学习进度。指定时优先于筛选条件，
+  从该素材开头开始；同篇当前段落的续读使用 `next_cursor`。服务也接受素材目录的原始 ID。
+- `level`：所选英语材料的数值等级（1–10），可与持久引用一起记录进度。
 - `next_cursor`：下一段位置；`null` 表示结束。客户端原样传给 `cursor`，无需计算页数。
 
 故事每段最多 700 字符，英语每段最多 240 字符；分段优先选择句子、换行与单词边界。
